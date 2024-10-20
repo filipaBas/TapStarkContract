@@ -1,38 +1,37 @@
 #[starknet::interface]
 trait IBettingContract<TContractState> {
-    fn get_prize_pool(self: @TContractState) -> felt;
-    fn get_user_points(self: @TContractState, user: felt) -> felt;
-    fn transfer_prize(ref self: TContractState, user: felt);
-    fn place_bet(ref self: TContractState, user: felt, bet_amount: felt);
+    fn get_prize_pool(self: @TContractState) -> felt252;
+    fn get_user_points(self: @TContractState, user: felt252) -> felt252;
+    fn transfer_prize(ref self: TContractState, user: felt252);
+    fn place_bet(ref self: TContractState, user: felt252, bet_amount: felt252);
 }
 
 #[starknet::contract]
 mod BettingContract {
     #[storage]
     struct Storage {
-        prize_pool: felt,
-        user_points: LegacyMap<ContractAddress, felt>, 
+        prize_pool: felt252,
+        user_points: LegacyMap<ContractAddress, felt252>, 
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState, initial_amount: felt) {
+    fn constructor(ref self: ContractState, initial_amount: felt252) {
         //assert initial_amount > 0;
         self.prize_pool.write(initial_amount);
     }
 
-    // Implementation of the IBettingContract interface
     #[abi(embed_v0)]
     impl BettingContract of super::IBettingContract<ContractState> {
     
-        fn get_prize_pool(self: @ContractState) -> felt {
+        fn get_prize_pool(self: @ContractState) -> felt252 {
             self.prize_pool.read()
         }
 
-        fn get_user_points(ref self: @ContractState, user: felt) -> felt {
+        fn get_user_points(ref self: @ContractState, user: felt252) -> felt252 {
             self.user_points.read(user)
         }
 
-        fn place_bet(ref self: ContractState, user: ContractAddress, bet_amount: felt) {
+        fn place_bet(ref self: ContractState, user: ContractAddress, bet_amount: felt252) {
             assert bet_amount > 0;
 
             let (current_pool) = self.prize_pool.read();
@@ -50,22 +49,19 @@ mod BettingContract {
 
             self.user_balances.write(user, pool); // Store the user's winnings
 
-            // Reset the prize pool after the transfer
             self.prize_pool.write(0);
          
         }
 
-           // Function for users to claim their Ether winnings
+
         fn claim_winnings(ref self: ContractState) {
             let user = get_caller_address(); 
             let (amount) = self.user_balances.read(user); 
 
             assert amount > 0;
 
-            // Emit an event for the Ether claim
             emit EtherWithdrawn { user, amount };
 
-            // Reset the user's balance after the claim
             self.user_balances.write(user, 0);
         }
     }
@@ -74,7 +70,6 @@ mod BettingContract {
     #[derive(Drop, starknet::Event)]
     struct EtherWithdrawn {
         user: ContractAddress,
-        amount: felt,
+        amount: felt252,
     }
 }
-

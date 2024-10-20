@@ -9,7 +9,5 @@ edition = "2023_11"
 sierra = true
 casm=true
 
-[lib]
-
 [dependencies]
 starknet = ">=2.6.4"
