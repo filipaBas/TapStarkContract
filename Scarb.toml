@@ -5,4 +5,11 @@ edition = "2023_11"
 
 # See more keys and their definitions at https://docs.swmansion.com/scarb/docs/reference/manifest.html
 
+[[target.starknet-contract]]
+sierra = true
+casm=true
+
+[lib]
+
 [dependencies]
+starknet = ">=2.6.4"
