@@ -10,4 +10,4 @@ sierra = true
 casm=true
 
 [dependencies]
-starknet = ">=2.6.4"
+starknet = ">=2.8.0"
