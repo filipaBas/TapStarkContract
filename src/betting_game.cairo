@@ -21,7 +21,7 @@ trait IBettingContract<TContractState> {
 #[starknet::contract]
 mod BettingContract {
     
-    use super::{ContractAddress, IBettingContract, IERC20};
+    use super::{ContractAddress, IBettingContract, IERC20, IERC20Dispatcher, IERC20DispatcherTrait};
     use starknet::{get_caller_address, get_contract_address};
 
 
@@ -67,8 +67,8 @@ mod BettingContract {
 
             // Transfer tokens from user to contract
             let token_address = self.token.read();
-            let mut token = IERC20Dispatcher { contract_address: token_address };
-            token.transfer_from(caller, contract_address, bet_amount);
+            let erc20_dispatcher = IERC20Dispatcher { contract_address: token_address };
+            erc20_dispatcher.transfer_from(caller, contract_address, bet_amount);
            
 
             let current_pool = self.prize_pool.read();
@@ -80,7 +80,6 @@ mod BettingContract {
 
         fn transfer_prize(ref self: ContractState, user: ContractAddress) {
             let pool = self.prize_pool.read();
-            assert(pool > 0);
 
             let current_balance = self.user_balances.read(user);
             self.user_balances.write(user, current_balance + pool);
@@ -91,12 +90,10 @@ mod BettingContract {
         fn claim_winnings(ref self: ContractState, user: ContractAddress) {
             let caller = get_caller_address();
             let amount = self.user_balances.read(caller);
-            assert(amount == 0 , 'No winnings to claim');
 
             let token_address = self.token.read();
-            let mut token = IERC20Dispatcher { contract_address: token_address };
-            token.transfer(caller, amount);
-        
+            let erc20_dispatcher = IERC20Dispatcher { contract_address: token_address };
+            erc20_dispatcher.transfer(caller, amount);
 
             self.user_balances.write(caller, 0.into());
 
