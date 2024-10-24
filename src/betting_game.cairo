@@ -1,4 +1,4 @@
-use starknet::ContractAddress;
+use starknet:: ContractAddress;
 
 trait IERC20<TContractState> {
     fn transfer(ref self: TContractState, recipient: ContractAddress, amount: u256) -> bool;
@@ -8,9 +8,8 @@ trait IERC20<TContractState> {
     fn balance_of(self: @TContractState, account: ContractAddress) -> u256;
 }
 
-
 #[starknet::interface]
-trait IBettingContract<TContractState> {
+pub trait IBettingContract<TContractState> {
     fn get_prize_pool(self: @TContractState) -> u256;
     fn get_user_points(self: @TContractState, user: ContractAddress) -> u256;
     fn transfer_prize(ref self: TContractState, user: ContractAddress);
@@ -20,33 +19,17 @@ trait IBettingContract<TContractState> {
 
 #[starknet::contract]
 mod BettingContract {
+    use super::{IERC20Dispatcher, IERC20DispatcherTrait};
+    use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
+    use starknet::{ContractAddress, get_caller_address, get_contract_address};
     
-    use super::{ContractAddress, IBettingContract, IERC20, IERC20Dispatcher, IERC20DispatcherTrait};
-    use starknet::{get_caller_address, get_contract_address};
-
 
     #[storage]
     struct Storage {
         prize_pool: u256,
-        user_points: LegacyMap<ContractAddress, u256>,
-        user_balances: LegacyMap<ContractAddress, u256>,
-        token: ContractAddress,
-    }
-
-    #[event]
-    #[derive(Drop, starknet::Event)]
-    enum Event {
-        TokenWithdrawn: TokenWithdrawn,
-    }
-    #[derive(Drop, starknet::Event)]
-    struct TokenWithdrawn {
-        user: ContractAddress,
-        amount: u256,
-    }
-
-    #[constructor]
-    fn constructor(ref self: ContractState, token_address: ContractAddress) {
-        self.token.write(token_address);
+        user_points: Map::<ContractAddress, u256>,
+        user_balances: Map::<ContractAddress, u256>,
+        contract_address: ContractAddress,
     }
 
     #[abi(embed_v0)]
@@ -59,26 +42,7 @@ mod BettingContract {
             self.user_points.read(user)
         }
 
-        fn place_bet(ref self: ContractState, user: ContractAddress, bet_amount: u256) {
-            assert(bet_amount > 0);
-
-            let caller = get_caller_address();
-            let contract_address = get_contract_address();
-
-            // Transfer tokens from user to contract
-            let token_address = self.token.read();
-            let erc20_dispatcher = IERC20Dispatcher { contract_address: token_address };
-            erc20_dispatcher.transfer_from(caller, contract_address, bet_amount);
-           
-
-            let current_pool = self.prize_pool.read();
-            self.prize_pool.write(current_pool + bet_amount);
-
-            let current_points = self.user_points.read(user);
-            self.user_points.write(user, current_points + 50);
-        }
-
-        fn transfer_prize(ref self: ContractState, user: ContractAddress) {
+        fn transfer_prize(ref self: ContractState, user: ContractAddress){
             let pool = self.prize_pool.read();
 
             let current_balance = self.user_balances.read(user);
@@ -86,18 +50,32 @@ mod BettingContract {
             self.prize_pool.write(0.into());
         }
 
+        fn place_bet(ref self: ContractState, user: ContractAddress, bet_amount: u256){
+            let caller = get_caller_address();
+            let contract_address = get_contract_address();
+            let contract_address = self.contract_address.read();
 
-        fn claim_winnings(ref self: ContractState, user: ContractAddress) {
+            let erc20_dispatcher = IERC20Dispatcher {contract_address: address};
+            erc20_dispatcher.transfer_from(caller, contract_address, bet_amount);
+        
+            let current_pool = self.prize_pool.read();
+            self.prize_pool.write(current_pool + bet_amount);
+
+            let current_points = self.user_points.read(user);
+            self.user_points.write(user, current_points + 50);
+
+        }
+
+        fn claim_winnings(ref self: ContractState, user: ContractAddress){
             let caller = get_caller_address();
             let amount = self.user_balances.read(caller);
+            let contract_address = get_contract_address();
 
-            let token_address = self.token.read();
-            let erc20_dispatcher = IERC20Dispatcher { contract_address: token_address };
+            let erc20_dispatcher = IERC20Dispatcher {contract_address: address};
             erc20_dispatcher.transfer(caller, amount);
 
             self.user_balances.write(caller, 0.into());
-
-            self.emit(TokenWithdrawn { user: caller, amount });
         }
+        
     }
 }
